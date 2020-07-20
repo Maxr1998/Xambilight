@@ -64,7 +64,7 @@ int main()
     if (!handled)
     {
       handled = true;
-      usleep(DEFAULT_WAIT_US * 2); // Wait 200ms before state changes
+      usleep(MODE_PROPAGATION_DELAY); // Wait 200ms before state changes
       switch (current_mode)
       {
       case CMD_EXIT:

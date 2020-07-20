@@ -30,7 +30,11 @@
                 "/usr/include"
             ],
             "intelliSenseMode": "clang-x64",
-            "name": "Linux"
+            "name": "Linux",
+            "compilerPath": "gcc",
+            "compilerArgs": [
+                "-lpthread"
+            ]
         }
     ],
     "version": 4
