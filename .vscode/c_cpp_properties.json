@@ -1,0 +1,37 @@
+{
+    "configurations": [
+        {
+            "cStandard": "c99",
+            "defines": [
+                ""
+            ],
+            "includePath": [
+                "/usr/include/libappindicator3-0.1",
+                "/usr/include/libdbusmenu-glib-0.4",
+                "/usr/include/gtk-3.0",
+                "/usr/include/pango-1.0",
+                "/usr/include/glib-2.0",
+                "/usr/lib/glib-2.0/include",
+                "/usr/include/harfbuzz",
+                "/usr/include/freetype2",
+                "/usr/include/libpng16",
+                "/usr/include/fribidi",
+                "/usr/include/cairo",
+                "/usr/include/pixman-1",
+                "/usr/include/gdk-pixbuf-2.0",
+                "/usr/include/libmount",
+                "/usr/include/blkid",
+                "/usr/include/gio-unix-2.0",
+                "/usr/include/atk-1.0",
+                "/usr/include/at-spi2-atk/2.0",
+                "/usr/include/dbus-1.0",
+                "/usr/lib/dbus-1.0/include",
+                "/usr/include/at-spi-2.0",
+                "/usr/include"
+            ],
+            "intelliSenseMode": "clang-x64",
+            "name": "Linux"
+        }
+    ],
+    "version": 4
+}

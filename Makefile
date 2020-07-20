@@ -1,5 +1,5 @@
-CFLAGS=-s -Wall -Wextra
-CXXFLAGS=
+CC=gcc
+CFLAGS=-Wall -Wextra -std=gnu99
 LDFLAGS=-no-pie
 LDLIBS=`pkg-config --cflags --libs appindicator3-0.1 gtk+-3.0 x11`
 
@@ -12,5 +12,5 @@ all: clean module
 clean:
 	rm -f $(BIN)
 
-module: ambilight_app.cpp ui.cpp util.cpp modes/ambilight.cpp modes/color.cpp
-	$(CXX) $(CFLAGS) $(CXXFLAGS) -o $(BIN) $+ $(LDFLAGS) $(LDLIBS)
+module: ambilight_app.c ui.c util.c modes/ambilight.c modes/color.c
+	$(CC) $(CFLAGS) -o $(BIN) $+ $(LDFLAGS) $(LDLIBS)

@@ -1,14 +1,15 @@
-#include "ui.hpp"
+#include "ui.h"
 
 #include <libappindicator/app-indicator.h>
 
-#include "modes.hpp"
+#include "modes.h"
 
 #define gtk_menu_append(menu, menu_item) gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item)
 
-AppIndicator* indicator;
+AppIndicator *indicator;
 
-void *create_indicator(void*) {
+void *create_indicator(__attribute__((unused)) void *arg)
+{
   gtk_init(0, NULL);
   indicator = app_indicator_new("ambilight-indicator", "", APP_INDICATOR_CATEGORY_HARDWARE);
   g_assert(IS_APP_INDICATOR(indicator));
@@ -21,9 +22,10 @@ void *create_indicator(void*) {
   return NULL;
 }
 
-GtkWidget* getMenu() {
-  GtkWidget* menu_item = NULL;
-  GtkWidget* menu = gtk_menu_new();
+GtkWidget *getMenu()
+{
+  GtkWidget *menu_item = NULL;
+  GtkWidget *menu = gtk_menu_new();
 
   menu_item = gtk_menu_item_new_with_label("Ambilight");
   g_signal_connect(menu_item, "activate", G_CALLBACK(change_mode), GINT_TO_POINTER(MODE_AMBILIGHT));
@@ -54,7 +56,7 @@ GtkWidget* getMenu() {
   gtk_menu_append(menu, menu_item);
 
   menu_item = gtk_menu_item_new();
-  GtkWidget* slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 255, 1);
+  GtkWidget *slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 255, 1);
   gtk_container_add(GTK_CONTAINER(menu_item), slider);
   gtk_widget_show_all(slider);
   gtk_menu_append(menu, menu_item);
@@ -79,12 +81,14 @@ GtkWidget* getMenu() {
   return menu;
 }
 
-void change_mode(GtkMenuItem *item, gpointer user_data) {
+void change_mode(__attribute__((unused)) GtkMenuItem *item, gpointer user_data)
+{
   set_mode(GPOINTER_TO_INT(user_data));
 }
 
-void exit_ui(GtkMenuItem *item, gpointer user_data) {
+void exit_ui(__attribute__((unused)) GtkMenuItem *item, __attribute__((unused)) gpointer user_data)
+{
   g_object_unref(G_OBJECT(indicator)); // remove reference
   gtk_main_quit();
-  set_mode(MODE_EXIT);
+  set_mode(CMD_EXIT);
 }
