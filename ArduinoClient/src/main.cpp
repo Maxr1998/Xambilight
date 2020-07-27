@@ -59,6 +59,9 @@ void loop()
       case MODE_AMBILIGHT:
         FastLED.setBrightness(200);
         break;
+      case MODE_FADE:
+        FastLED.setBrightness(255);
+        fill_rainbow(leds, NUM_LEDS, 0, 8);
       }
 
       // Reply with current status
@@ -102,9 +105,11 @@ void loop()
   }
   break;
   case MODE_FADE:
-    fill_rainbow(leds, NUM_LEDS, rainbow_iter, 8);
-    rainbow_iter = (rainbow_iter + 2) % 256;
-    break;
+    CRGB last_led = leds[NUM_LEDS - 1];
+    memmove(leds + 1, leds, (NUM_LEDS - 1) * sizeof(CRGB));
+    leds[0] = last_led;
+    FastLED.delay(100);
+    return;
   }
   FastLED.show();
 }
