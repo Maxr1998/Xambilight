@@ -56,9 +56,9 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
     args->active = &workers_active;
     args->id = i;
     args->x = (int)(i * region_width);
-    args->y = 48;
+    args->y = 60; // Skip top panels and similar
     args->width = (int)region_width;
-    args->height = (int)(region_width * 2);
+    args->height = (int)(region_width * 4);
     pthread_create(&threads[i], NULL, ambilight_extraction_worker, (void *)args);
   }
 
@@ -114,6 +114,8 @@ void *ambilight_extraction_worker(void *data)
   int global_y = args->y;
   int width = args->width;
   int height = args->height;
+  unsigned long num_of_pixels = width * height;
+  unsigned long red_sum, green_sum, blue_sum;
 
   fprintf(stderr, "Worker %d starting\n", id);
 
@@ -125,37 +127,27 @@ void *ambilight_extraction_worker(void *data)
     unsigned long green_mask = current_image->green_mask;
     unsigned long blue_mask = current_image->blue_mask;
 
-    unsigned long red_sum = 0;
-    unsigned long green_sum = 0;
-    unsigned long blue_sum = 0;
+    // Reset sums
+    red_sum = green_sum = blue_sum = 0;
 
+    // Iterate through image
     for (int y = global_y; y < global_y + height; y++)
     {
       for (int x = global_x; x < global_x + width; x++)
       {
         unsigned long pixel = XGetPixel(current_image, x, y);
 
-        unsigned char red = (pixel & red_mask) >> 16;
-        unsigned char green = (pixel & green_mask) >> 8;
-        unsigned char blue = pixel & blue_mask;
-
-        red_sum += red;
-        green_sum += green;
-        blue_sum += blue;
+        red_sum += (pixel & red_mask) >> 16;
+        green_sum += (pixel & green_mask) >> 8;
+        blue_sum += pixel & blue_mask;
       }
     }
 
-    long num_of_pixels = width * height;
-
-    unsigned int average_red = red_sum / num_of_pixels;
-    unsigned int average_green = green_sum / num_of_pixels;
-    unsigned int average_blue = blue_sum / num_of_pixels;
-
     // Update buffer with new value
-    unsigned char *buffer = get_buffer();
-    buffer[id * 3 + 0] = (int)(average_red * 0.8);
-    buffer[id * 3 + 1] = (int)(average_green * 0.8);
-    buffer[id * 3 + 2] = (int)(average_blue * 0.8);
+    unsigned char *current_buffer = get_buffer() + id * 3;
+    current_buffer[0] = (unsigned char)(red_sum / num_of_pixels);
+    current_buffer[1] = (unsigned char)(green_sum / num_of_pixels);
+    current_buffer[2] = (unsigned char)(blue_sum / num_of_pixels);
 
     pthread_barrier_wait(&bar_image_processed);
   }
