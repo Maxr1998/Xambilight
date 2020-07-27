@@ -1,6 +1,8 @@
 #include <FastLED.h>
 #include <colorutils.h>
 
+#define SERIAL_RX_BUFFER_SIZE 256
+
 #define MODE_OFF -1
 #define MODE_CLEAR 0
 #define MODE_AMBILIGHT 1
@@ -13,7 +15,7 @@
 #define NUM_LEDS 30
 #define BUFFER_SIZE 100
 
-#define FADE_TIME 16
+#define AMBILIGHT_FADE_TIME 64
 
 int mode = MODE_OFF;
 
@@ -21,7 +23,7 @@ byte message_buffer[BUFFER_SIZE];
 CRGB leds[NUM_LEDS];
 CRGB next_leds[NUM_LEDS];
 
-unsigned long last_recv_time;
+unsigned long last_recv_ms;
 int rainbow_iter = 0;
 
 void setup()
@@ -84,7 +86,7 @@ void loop()
         byte *current_buffer = message_buffer + i * 3;
         next_leds[i] = CRGB(current_buffer[0], current_buffer[1], current_buffer[2]);
       }
-      last_recv_time = millis();
+      last_recv_ms = millis();
     }
   }
 
@@ -94,14 +96,9 @@ void loop()
     return; // noop
   case MODE_AMBILIGHT:
   {
-    unsigned long delta_millis = (millis() - last_recv_time) % (FADE_TIME + 1);
-    for (int i = 0; i < NUM_LEDS; i++)
-    {
-      CRGB *cled = leds + i, *nled = next_leds + i;
-      cled->r = cled->r * (FADE_TIME - delta_millis) / FADE_TIME + nled->r * delta_millis / FADE_TIME;
-      cled->g = cled->g * (FADE_TIME - delta_millis) / FADE_TIME + nled->g * delta_millis / FADE_TIME;
-      cled->b = cled->b * (FADE_TIME - delta_millis) / FADE_TIME + nled->b * delta_millis / FADE_TIME;
-    }
+    nblend(leds, next_leds, NUM_LEDS, 12);
+    blur1d(leds, NUM_LEDS, 10);
+    FastLED.delay(4);
   }
   break;
   case MODE_FADE:
