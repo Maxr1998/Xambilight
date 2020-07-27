@@ -3,11 +3,8 @@
 #include "modes.h"
 
 #define ARDUINO_PATH "/dev/ttyACM0"
-#define H_LEDS 30
-#define BUFFER_SIZE H_LEDS * 3 * sizeof(char)
 
 #define MODE_PROPAGATION_DELAY 200000
-#define UPDATE_US 10000
 
 int get_mode();
 void set_mode(int m);

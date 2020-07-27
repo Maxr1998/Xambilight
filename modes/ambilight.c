@@ -1,12 +1,12 @@
-#include "ambilight.h"
-
 #include <pthread.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include <X11/Xutil.h>
 
+#include "ambilight.h"
+#include "../constants.h"
 #include "../ambilight_app.h"
 #include "../modes.h"
 
@@ -31,7 +31,7 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
 {
   int worker_count = H_LEDS;
 
-  printf("Starting ambilight\n");
+  fprintf(stderr, "Starting ambilight\n");
 
   // Read display attributes
   d = XOpenDisplay(NULL);
@@ -58,7 +58,7 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
     args->x = (int)(i * region_width);
     args->y = 48;
     args->width = (int)region_width;
-    args->height = (int)region_width;
+    args->height = (int)(region_width * 2);
     pthread_create(&threads[i], NULL, ambilight_extraction_worker, (void *)args);
   }
 
@@ -102,7 +102,7 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
   XCloseDisplay(d);
   current_image = NULL;
   d = NULL;
-  printf("Exiting ambilight\n");
+  fprintf(stderr, "Exiting ambilight\n");
   return NULL;
 }
 
@@ -115,7 +115,7 @@ void *ambilight_extraction_worker(void *data)
   int width = args->width;
   int height = args->height;
 
-  printf("Worker %d starting\n", id);
+  fprintf(stderr, "Worker %d starting\n", id);
 
   while (*args->active)
   {
@@ -159,7 +159,7 @@ void *ambilight_extraction_worker(void *data)
 
     pthread_barrier_wait(&bar_image_processed);
   }
-  printf("Worker %d exiting\n", id);
+  fprintf(stderr, "Worker %d exiting\n", id);
   free(data);
   return NULL;
 }

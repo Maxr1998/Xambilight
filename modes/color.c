@@ -1,7 +1,7 @@
 #include <string.h>
 
 #include "color.h"
-
+#include "../constants.h"
 #include "../ambilight_app.h"
 
 void send_color(int brightness, int r, int g, int b)

@@ -1,19 +1,20 @@
-#include "ambilight_app.h"
-
 #include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
+
+#include "constants.h"
+#include "ambilight_app.h"
+#include "ui.h"
 
 #include "modes.h"
-#include "ui.h"
-#include "util.h"
-
 #include "modes/ambilight.h"
 #include "modes/color.h"
+
+#include "util.h"
 
 bool RUN_LOOP = true;
 
@@ -119,7 +120,7 @@ void send_mode_cmd(int mode)
   buffer[0] = 77;
   buffer[1] = mode;
   buffer[2] = '\n';
-  printf("Mode: %d\n", mode);
+  fprintf(stderr, "Mode: %d\n", mode);
   send_buffer(3);
 }
 
