@@ -11,21 +11,25 @@
 #define LED_PIN 5
 #define CONFIG_PIN 2
 #define NUM_LEDS 30
-#define BUFFER_SIZE 200
+#define BUFFER_SIZE 100
 
-int mode = MODE_CLEAR; // Initialize LEDs on startup
+#define FADE_TIME 16
 
-int recv_cnt;
-char message_buffer[BUFFER_SIZE];
+int mode = MODE_OFF;
+
+byte message_buffer[BUFFER_SIZE];
 CRGB leds[NUM_LEDS];
+CRGB next_leds[NUM_LEDS];
 
-int iterator = 0;
+unsigned long last_recv_time;
+int rainbow_iter = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  Serial.setTimeout(20); // Timeout after 100 ms
+  Serial.setTimeout(1); // Timeout after 1 ms
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
+  FastLED.clear(true);
 
   // Boot flag
   pinMode(CONFIG_PIN, INPUT_PULLUP);
@@ -39,50 +43,68 @@ void loop()
 {
   // Check for new commands
   memset(message_buffer, 0, BUFFER_SIZE);
-  if ((recv_cnt = Serial.readBytesUntil('\n', (char *)message_buffer, BUFFER_SIZE)) > 0)
+  int recv_cnt;
+  if ((recv_cnt = Serial.readBytesUntil('\n', message_buffer, BUFFER_SIZE)) > 0)
   {
     // Check for CMD flag
     if (message_buffer[0] == 'M' /* 0x4D */ && recv_cnt == 2)
     {
-      // New mode available
-      mode = message_buffer[1];
-      snprintf(message_buffer, BUFFER_SIZE, "{\"mode\": %d, \"led_cnt\": %d}", mode, NUM_LEDS);
-      Serial.println(message_buffer);
+      // New mode, run setup
+      switch (mode = message_buffer[1])
+      {
+      case MODE_CLEAR:
+        FastLED.clear(true);
+        mode = MODE_OFF;
+        break;
+      case MODE_AMBILIGHT:
+        FastLED.setBrightness(200);
+        break;
+      }
+
+      // Reply with current status
+      snprintf((char *)message_buffer, BUFFER_SIZE, "{\"mode\": %d, \"led_cnt\": %d}", mode, NUM_LEDS);
+      Serial.println((char *)message_buffer);
+
       return;
     }
     // Handle single colors
-    if (mode == MODE_COLOR)
+    if (mode == MODE_COLOR && message_buffer[0] == 'c' /* 0x63 */ && recv_cnt == 5)
     {
-      if (message_buffer[0] == 'c' /* 0x63 */ && recv_cnt == 5)
-      {
-        FastLED.setBrightness((int)message_buffer[1]);
-        fill_solid(leds, NUM_LEDS, CRGB((int)message_buffer[2], (int)message_buffer[3], (int)message_buffer[4]));
-      }
+      FastLED.setBrightness((int)message_buffer[1]);
+      fill_solid(leds, NUM_LEDS, CRGB((int)message_buffer[2], (int)message_buffer[3], (int)message_buffer[4]));
     }
     else
     {
-      FastLED.setBrightness(255);
-      // Copy data to LEDs
-      memcpy((char *)leds, message_buffer, sizeof leds);
+      // Copy data to next LEDs for transitioning later
+      for (int i = 0; i < NUM_LEDS; i++)
+      {
+        byte *current_buffer = message_buffer + i * 3;
+        next_leds[i] = CRGB(current_buffer[0], current_buffer[1], current_buffer[2]);
+      }
+      last_recv_time = millis();
     }
   }
 
   switch (mode)
   {
   case MODE_OFF:
-    // noop
-    break;
-  case MODE_CLEAR:
-    FastLED.clear(true);
-    mode = MODE_OFF;
-    break;
+    return; // noop
+  case MODE_AMBILIGHT:
+  {
+    unsigned long delta_millis = (millis() - last_recv_time) % (FADE_TIME + 1);
+    for (int i = 0; i < NUM_LEDS; i++)
+    {
+      CRGB *cled = leds + i, *nled = next_leds + i;
+      cled->r = cled->r * (FADE_TIME - delta_millis) / FADE_TIME + nled->r * delta_millis / FADE_TIME;
+      cled->g = cled->g * (FADE_TIME - delta_millis) / FADE_TIME + nled->g * delta_millis / FADE_TIME;
+      cled->b = cled->b * (FADE_TIME - delta_millis) / FADE_TIME + nled->b * delta_millis / FADE_TIME;
+    }
+  }
+  break;
   case MODE_FADE:
-    fill_rainbow(leds, NUM_LEDS, iterator, 8);
-    iterator = (iterator + 2) % 256;
-    FastLED.show();
-    break;
-  default:
-    FastLED.show();
+    fill_rainbow(leds, NUM_LEDS, rainbow_iter, 8);
+    rainbow_iter = (rainbow_iter + 2) % 256;
     break;
   }
+  FastLED.show();
 }
