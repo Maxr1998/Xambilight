@@ -18,7 +18,11 @@
 
 bool RUN_LOOP = true;
 
+#ifndef TEST_MODE
 int current_mode = MODE_OFF;
+#else
+int current_mode = MODE_AMBILIGHT;
+#endif
 bool handled = false;
 int tty;
 
@@ -30,6 +34,7 @@ int main()
   pthread_t ui_thread;
   pthread_create(&ui_thread, NULL, &create_indicator, (void *)NULL);
 
+#ifndef TEST_MODE
   // Open connection
   char *path;
   char link_path[50];
@@ -56,6 +61,7 @@ int main()
   }
   set_interface_attribs(tty, B115200, 0);
   set_blocking(tty, 1);
+#endif
 
   buffer = (unsigned char *)malloc(BUFFER_SIZE);
 
@@ -95,7 +101,9 @@ int main()
     usleep(UPDATE_US);
   }
   free(buffer);
+#ifndef TEST_MODE
   close(tty);
+#endif
   return EXIT_SUCCESS;
 }
 
@@ -136,6 +144,11 @@ void send_buffer_all()
 
 void send_buffer(int c)
 {
+#ifdef TEST_MODE
+  write(1, buffer, c);
+  write(1, "\n", 1);
+#else
   write(tty, buffer, c);
   write(tty, "\n", 1);
+#endif
 }
