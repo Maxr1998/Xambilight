@@ -95,8 +95,8 @@ void loop()
     return; // noop
   case MODE_AMBILIGHT:
   {
-    nblend(leds, next_leds, NUM_LEDS, 12);
-    blur1d(leds, NUM_LEDS, 10);
+    nblend(leds, next_leds, NUM_LEDS, 16);
+    blur1d(leds, NUM_LEDS, 8);
     FastLED.delay(4);
   }
   break;
