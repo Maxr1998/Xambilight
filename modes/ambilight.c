@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/shm.h>
 
@@ -183,7 +184,7 @@ void *ambilight_extraction_worker(void *data)
   int width = args->width;
   int height = args->height;
   unsigned long num_of_pixels = width * height;
-  unsigned long red_sum, green_sum, blue_sum;
+  unsigned int red_values[256], green_values[256], blue_values[256];
 
   fprintf(stderr, "Worker %d starting\n", id);
 
@@ -195,8 +196,10 @@ void *ambilight_extraction_worker(void *data)
     unsigned long green_mask = current_image->green_mask;
     unsigned long blue_mask = current_image->blue_mask;
 
-    // Reset sums
-    red_sum = green_sum = blue_sum = 0;
+    // Reset values
+    memset(red_values, 0, sizeof(red_values));
+    memset(green_values, 0, sizeof(green_values));
+    memset(blue_values, 0, sizeof(blue_values));
 
     // Iterate through image
     for (int y = global_y; y < global_y + height; y++)
@@ -205,21 +208,41 @@ void *ambilight_extraction_worker(void *data)
       {
         unsigned long pixel = XGetPixel(current_image, x, y);
 
-        red_sum += (pixel & red_mask) >> 16;
-        green_sum += (pixel & green_mask) >> 8;
-        blue_sum += pixel & blue_mask;
+        int r = (pixel & red_mask) >> 16;
+        int g = (pixel & green_mask) >> 8;
+        int b = pixel & blue_mask;
+
+        red_values[r]++;
+        green_values[g]++;
+        blue_values[b]++;
       }
     }
 
     // Update buffer with new value
     unsigned char *current_buffer = get_buffer() + id * 3;
-    current_buffer[0] = (unsigned char)(red_sum / num_of_pixels);
-    current_buffer[1] = (unsigned char)(green_sum / num_of_pixels);
-    current_buffer[2] = (unsigned char)(blue_sum / num_of_pixels);
+    current_buffer[0] = (unsigned char)index_max(red_values, 256);
+    current_buffer[1] = (unsigned char)index_max(green_values, 256);
+    current_buffer[2] = (unsigned char)index_max(blue_values, 256);
 
     pthread_barrier_wait(&bar_image_processed);
   }
   fprintf(stderr, "Worker %d exiting\n", id);
   free(data);
   return NULL;
+}
+
+int index_max(unsigned int *array, int size)
+{
+  int index_max = 0;
+  unsigned int max = 0;
+
+  for (int i = 0; i < size; i++)
+  {
+    if (array[i] > max)
+    {
+      index_max = i;
+      max = array[i];
+    }
+  }
+  return index_max;
 }
