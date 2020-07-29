@@ -44,7 +44,6 @@ void setup()
 void loop()
 {
   // Check for new commands
-  memset(message_buffer, 0, BUFFER_SIZE);
   int recv_cnt;
   if ((recv_cnt = Serial.readBytesUntil('\n', message_buffer, BUFFER_SIZE)) > 0)
   {
