@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,6 +27,7 @@ void start_ambilight_mode()
   // Start ambilight updater thread
   pthread_t update_thread;
   pthread_create(&update_thread, NULL, &ambilight_updater, (void *)NULL);
+  pthread_setname_np(update_thread, "updater");
 }
 
 void *ambilight_updater(__attribute__((unused)) void *arg)
@@ -60,6 +63,9 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
     args->width = (int)region_width;
     args->height = (int)(region_width * 4);
     pthread_create(&threads[i], NULL, ambilight_extraction_worker, (void *)args);
+    char name[16];
+    sprintf(name, "worker %d", i);
+    pthread_setname_np(threads[i], name);
   }
 
   // Continuously refresh screen content
