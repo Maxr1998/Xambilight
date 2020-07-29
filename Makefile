@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -std=gnu99
 LDFLAGS=-no-pie
-LDLIBS=`pkg-config --cflags --libs appindicator3-0.1 gtk+-3.0 x11`
+LDLIBS=`pkg-config --cflags --libs appindicator3-0.1 gtk+-3.0 x11 xrandr`
 
 BIN=ambilight
 

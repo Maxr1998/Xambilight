@@ -5,17 +5,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <X11/X.h>
 #include <X11/Xutil.h>
+#include <X11/extensions/Xrandr.h>
 
 #include "ambilight.h"
 #include "../constants.h"
 #include "../ambilight_app.h"
 #include "../modes.h"
 
-Display *d = NULL;
 XImage *current_image = NULL;
-int screen_width;
-int screen_height;
 
 pthread_barrier_t bar_image_ready, bar_image_processed;
 
@@ -32,17 +31,28 @@ void start_ambilight_mode()
 
 void *ambilight_updater(__attribute__((unused)) void *arg)
 {
-  int worker_count = H_LEDS;
-
   fprintf(stderr, "Starting ambilight\n");
 
-  // Read display attributes
-  d = XOpenDisplay(NULL);
-  XWindowAttributes gwa;
-  XGetWindowAttributes(d, DefaultRootWindow(d), &gwa);
-  screen_width = gwa.width;
-  screen_width /= 2;
-  screen_height = gwa.height;
+  // Read display info
+  Display *d = XOpenDisplay(NULL);
+  Window root = DefaultRootWindow(d);
+  XRRScreenResources *xrrsr = XRRGetScreenResources(d, root);
+  RROutput primary = XRRGetOutputPrimary(d, root);
+  XRROutputInfo *xrro = XRRGetOutputInfo(d, xrrsr, primary);
+  if (xrro->connection != RR_Connected)
+  {
+    XRRFreeOutputInfo(xrro);
+    XCloseDisplay(d);
+    return NULL;
+  }
+
+  XRRCrtcInfo *xrrci = XRRGetCrtcInfo(d, xrrsr, xrro->crtc);
+  int screen_width = xrrci->width, screen_height = xrrci->height, x = xrrci->x, y = xrrci->y;
+  XRRFreeCrtcInfo(xrrci);
+  XRRFreeOutputInfo(xrro);
+  XRRFreeScreenResources(xrrsr);
+
+  int worker_count = H_LEDS;
 
   // Setup barriers
   pthread_barrier_init(&bar_image_ready, NULL, worker_count + 1);
@@ -51,7 +61,7 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
   // Create worker threads
   int workers_active = 1;
   pthread_t threads[worker_count];
-  double region_width = (gwa.width / 2) / worker_count;
+  double region_width = screen_width / worker_count;
   for (int i = 0; i < worker_count; i++)
   {
     worker_args_t *args;
@@ -72,7 +82,7 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
   while (1)
   {
     XImage *backup = current_image;
-    current_image = XGetImage(d, DefaultRootWindow(d), 0, 0, screen_width, screen_height, AllPlanes, ZPixmap);
+    current_image = XGetImage(d, root, x, y, screen_width, screen_height, AllPlanes, ZPixmap);
 
     pthread_barrier_wait(&bar_image_ready);
 
