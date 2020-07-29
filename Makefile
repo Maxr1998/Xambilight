@@ -1,22 +1,37 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -std=gnu99
+APP_DEPS=appindicator3-0.1 gtk+-3.0 x11 xrandr
+TEST_DEPS=cairo x11 xrandr
+DEPS=$(APP_DEPS)
+CFLAGS=-Wall -Wextra -std=gnu99 `pkg-config --cflags $(DEPS)`
 LDFLAGS=-no-pie
-LDLIBS=`pkg-config --cflags --libs appindicator3-0.1 gtk+-3.0 x11 xrandr`
+LDLIBS=`pkg-config --libs $(DEPS)`
 
-BIN=ambilight
+OBJS=ambilight_app.o ui.o util.o modes/ambilight.o modes/color.o
+APP=ambilight
+TEST_APP=ambilight-test
+TEST_TOOL=test
 
-all: clean module
+all: $(APP)
 
-.PHONY: clean module
+%.o: %.c
+	$(CC) -c $(CFLAGS) -o $@ $^
+
+$(APP): $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDLIBS) -lpthread
+
+$(TEST_APP): DEPS = $(APP_DEPS)
+
+$(TEST_APP): $(OBJS)
+	$(CC) -DTEST_MODE -g -o $@ $^ $(LDFLAGS) $(LDLIBS) -lpthread
+
+# Set correct deps for test target
+$(TEST_TOOL): DEPS = $(TEST_DEPS)
+
+$(TEST_TOOL): test.o $(TEST_APP)
+	$(CC) -o $@ $< $(LDFLAGS) $(LDLIBS)
+
+.PHONY: clean
 
 clean:
-	rm -f $(BIN)
-
-module: ambilight_app.c ui.c util.c modes/ambilight.c modes/color.c
-	$(CC) $(CFLAGS) -o $(BIN) $+ $(LDFLAGS) $(LDLIBS)
-
-module_test: ambilight_app.c ui.c util.c modes/ambilight.c modes/color.c
-	$(CC) -DTEST_MODE $(CFLAGS) -o $(BIN) $+ $(LDFLAGS) $(LDLIBS)
-
-test: module_test test.c
-	$(CC) $(CFLAGS) -o test test.c $(LDFLAGS) `pkg-config --cflags --libs cairo x11 xrandr`
+	find . -name "*.o" -delete
+	rm -f $(APP) $(TEST_APP) $(TEST_TOOL)

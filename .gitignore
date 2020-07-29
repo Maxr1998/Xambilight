@@ -1,3 +1,5 @@
-# Built object
+# Built objects
 ambilight
+ambilight-test
 test
+*.o
