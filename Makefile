@@ -1,5 +1,5 @@
 CC=gcc
-APP_DEPS=appindicator3-0.1 gtk+-3.0 x11 xrandr
+APP_DEPS=appindicator3-0.1 gtk+-3.0 x11 xrandr xext
 TEST_DEPS=cairo x11 xrandr
 CFLAGS=-Wall -Wextra -std=gnu99 `pkg-config --cflags $(DEPS)`
 LDFLAGS=-no-pie

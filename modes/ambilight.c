@@ -4,15 +4,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/shm.h>
 
 #include <X11/X.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrandr.h>
+#include <X11/extensions/XShm.h>
 
 #include "ambilight.h"
 #include "../constants.h"
 #include "../ambilight_app.h"
 #include "../modes.h"
+
+XShmSegmentInfo shm_info;
 
 XImage *current_image = NULL;
 
@@ -33,9 +37,16 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
 {
   fprintf(stderr, "Starting ambilight\n");
 
-  // Read display info
+  int worker_count = H_LEDS;
+
+  // Setup X interfaces
   Display *d = XOpenDisplay(NULL);
-  Window root = DefaultRootWindow(d);
+  Screen *screen = DefaultScreenOfDisplay(d);
+  Window root = screen->root;
+  Visual *visual = screen->root_visual;
+  int depth = screen->root_depth;
+
+  // Query display dimensions
   XRRScreenResources *xrrsr = XRRGetScreenResources(d, root);
   RROutput primary = XRRGetOutputPrimary(d, root);
   XRROutputInfo *xrro = XRRGetOutputInfo(d, xrrsr, primary);
@@ -45,33 +56,66 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
     XCloseDisplay(d);
     return NULL;
   }
-
   XRRCrtcInfo *xrrci = XRRGetCrtcInfo(d, xrrsr, xrro->crtc);
-  int screen_width = xrrci->width, screen_height = xrrci->height, x = xrrci->x, y = xrrci->y;
+
+  int screen_width = xrrci->width, x = xrrci->x, y = xrrci->y;
+  int region_width = screen_width / worker_count;
+  int region_height = region_width * 4;
+
   XRRFreeCrtcInfo(xrrci);
   XRRFreeOutputInfo(xrro);
   XRRFreeScreenResources(xrrsr);
 
-  int worker_count = H_LEDS;
+  // Check for XShmExtension
+  int has_shm_extension = XShmQueryExtension(d);
+
+  if (has_shm_extension)
+  {
+    fprintf(stderr, "Using X11 shared memory\n");
+    current_image = XShmCreateImage(d, visual, depth, ZPixmap, NULL, &shm_info, screen_width, region_height);
+    if (!current_image)
+    {
+      fprintf(stderr, "Can't create image!\n");
+      return NULL;
+    }
+    shm_info.shmid = shmget(IPC_PRIVATE, current_image->bytes_per_line * current_image->height, IPC_CREAT | 0777);
+    if (shm_info.shmid == -1)
+    {
+      fprintf(stderr, "Can't get shared memory!\n");
+      return NULL;
+    }
+    shm_info.shmaddr = shmat(shm_info.shmid, NULL, SHM_RND);
+    if (shm_info.shmaddr == (char *)-1)
+    {
+      fprintf(stderr, "Can't attach to shared memory!\n");
+      return NULL;
+    }
+    current_image->data = shm_info.shmaddr;
+    shm_info.readOnly = False;
+    if (!XShmAttach(d, &shm_info))
+    {
+      fprintf(stderr, "Can't attach server to shared memory!\n");
+      return NULL;
+    }
+  }
 
   // Setup barriers
   pthread_barrier_init(&bar_image_ready, NULL, worker_count + 1);
   pthread_barrier_init(&bar_image_processed, NULL, worker_count + 1);
 
   // Create worker threads
-  int workers_active = 1;
+  int workers_active = True;
   pthread_t threads[worker_count];
-  double region_width = screen_width / worker_count;
   for (int i = 0; i < worker_count; i++)
   {
     worker_args_t *args;
     args = (worker_args_t *)malloc(sizeof(worker_args_t));
     args->active = &workers_active;
     args->id = i;
-    args->x = (int)(i * region_width);
-    args->y = 60; // Skip top panels and similar
-    args->width = (int)region_width;
-    args->height = (int)(region_width * 4);
+    args->x = x + i * region_width;
+    args->y = y;
+    args->width = region_width;
+    args->height = region_height;
     pthread_create(&threads[i], NULL, ambilight_extraction_worker, (void *)args);
     char name[16];
     sprintf(name, "worker %d", i);
@@ -79,10 +123,18 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
   }
 
   // Continuously refresh screen content
-  while (1)
+  XImage *backup = NULL;
+  while (True)
   {
-    XImage *backup = current_image;
-    current_image = XGetImage(d, root, x, y, screen_width, screen_height, AllPlanes, ZPixmap);
+    if (has_shm_extension)
+    {
+      XShmGetImage(d, root, current_image, x, y + 60 /* Skip top panels and similar */, AllPlanes);
+    }
+    else
+    {
+      backup = current_image;
+      current_image = XGetImage(d, root, x, y + 60 /* Skip top panels and similar */, screen_width, region_height, AllPlanes, ZPixmap);
+    }
 
     pthread_barrier_wait(&bar_image_ready);
 
@@ -94,7 +146,7 @@ void *ambilight_updater(__attribute__((unused)) void *arg)
     if (get_mode() != MODE_AMBILIGHT)
     {
       // Stop worker threads
-      workers_active = 0;
+      workers_active = False;
     }
 
     pthread_barrier_wait(&bar_image_processed);
