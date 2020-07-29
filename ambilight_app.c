@@ -16,57 +16,60 @@
 
 #include "util.h"
 
-bool RUN_LOOP = true;
-
-#ifndef TEST_MODE
+bool test_mode = false;
+bool run_loop = true;
 int current_mode = MODE_OFF;
-#else
-int current_mode = MODE_AMBILIGHT;
-#endif
 bool handled = false;
 int tty;
 
 unsigned char *buffer = NULL;
 
-int main()
+int main(int argc, char *argv[])
 {
+  test_mode = argc == 2 && !strcmp(argv[1], "--test");
+
   // Create UI
   pthread_t ui_thread;
   pthread_create(&ui_thread, NULL, &create_indicator, (void *)NULL);
 
-#ifndef TEST_MODE
-  // Open connection
-  char *path;
-  char link_path[50];
-  if (readlink(ARDUINO_PATH, link_path, 50) != -1)
+  if (!test_mode)
   {
-    path = (char *)malloc(100 + strlen(link_path));
-    strcpy(path, "/dev/");
-    strcpy(path + 5, link_path);
-    printf("Resolved link, real path is %s\n", path);
+    // Open connection
+    char *path;
+    char link_path[50];
+    if (readlink(ARDUINO_PATH, link_path, 50) != -1)
+    {
+      path = (char *)malloc(100 + strlen(link_path));
+      strcpy(path, "/dev/");
+      strcpy(path + 5, link_path);
+      printf("Resolved link, real path is %s\n", path);
+    }
+    else
+    {
+      path = (char *)malloc(strlen(ARDUINO_PATH) * sizeof(char) + 1);
+      strcpy(path, ARDUINO_PATH);
+      printf("Path is %s\n", path);
+    }
+    tty = open(path, O_RDWR | O_NOCTTY | O_SYNC);
+    free(path);
+    if (tty < 0)
+    {
+      pthread_cancel(ui_thread);
+      printf("Communication error\n");
+      return EXIT_FAILURE;
+    }
+    set_interface_attribs(tty, B115200, 0);
+    set_blocking(tty, 1);
   }
   else
   {
-    path = (char *)malloc(strlen(ARDUINO_PATH) * sizeof(char) + 1);
-    strcpy(path, ARDUINO_PATH);
-    printf("Path is %s\n", path);
+    current_mode = MODE_AMBILIGHT;
   }
-  tty = open(path, O_RDWR | O_NOCTTY | O_SYNC);
-  free(path);
-  if (tty < 0)
-  {
-    pthread_cancel(ui_thread);
-    printf("Communication error\n");
-    return EXIT_FAILURE;
-  }
-  set_interface_attribs(tty, B115200, 0);
-  set_blocking(tty, 1);
-#endif
 
   buffer = (unsigned char *)malloc(BUFFER_SIZE);
 
   // Main loop
-  while (RUN_LOOP)
+  while (run_loop)
   {
     if (!handled)
     {
@@ -75,7 +78,7 @@ int main()
       switch (current_mode)
       {
       case CMD_EXIT:
-        RUN_LOOP = false;
+        run_loop = false;
         // fall through
       case MODE_OFF:
         send_mode_cmd(MODE_OFF);
@@ -144,11 +147,14 @@ void send_buffer_all()
 
 void send_buffer(int c)
 {
-#ifdef TEST_MODE
-  write(1, buffer, c);
-  write(1, "\n", 1);
-#else
-  write(tty, buffer, c);
-  write(tty, "\n", 1);
-#endif
+  if (test_mode)
+  {
+    write(1, buffer, c);
+    write(1, "\n", 1);
+  }
+  else
+  {
+    write(tty, buffer, c);
+    write(tty, "\n", 1);
+  }
 }
